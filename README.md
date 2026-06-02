@@ -11,7 +11,9 @@ ______________________________________________________________________
 1. [アーキテクチャ](#%E3%82%A2%E3%83%BC%E3%82%AD%E3%83%86%E3%82%AF%E3%83%81%E3%83%A3)
 1. [ディレクトリ構成](#%E3%83%87%E3%82%A3%E3%83%AC%E3%82%AF%E3%83%88%E3%83%AA%E6%A7%8B%E6%88%90)
 1. [前提条件](#%E5%89%8D%E6%8F%90%E6%9D%A1%E4%BB%B6)
+1. [実行場所](#%E5%AE%9F%E8%A1%8C%E5%A0%B4%E6%89%80)
 1. [初回セットアップ（エンジニア向け）](#%E5%88%9D%E5%9B%9E%E3%82%BB%E3%83%83%E3%83%88%E3%82%A2%E3%83%83%E3%83%97%E3%82%A8%E3%83%B3%E3%82%B8%E3%83%8B%E3%82%A2%E5%90%91%E3%81%91)
+1. [利用者を追加する](#%E5%88%A9%E7%94%A8%E8%80%85%E3%82%92%E8%BF%BD%E5%8A%A0%E3%81%99%E3%82%8B)
 1. [日常操作（担当者向け）](#%E6%97%A5%E5%B8%B8%E6%93%8D%E4%BD%9C%E6%8B%85%E5%BD%93%E8%80%85%E5%90%91%E3%81%91)
 1. [コマンドリファレンス](#%E3%82%B3%E3%83%9E%E3%83%B3%E3%83%89%E3%83%AA%E3%83%95%E3%82%A1%E3%83%AC%E3%83%B3%E3%82%B9)
 1. [インフラ詳細](#%E3%82%A4%E3%83%B3%E3%83%95%E3%83%A9%E8%A9%B3%E7%B4%B0)
@@ -133,6 +135,75 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
+## 実行場所
+
+このツールは専用 UI を持ちません。`make` コマンドは以下のいずれかの場所で実行します。
+
+### 方法 A: Google Cloud Shell（担当者・推奨）
+
+ブラウザだけで完結し、追加インストール不要です。日常運用はこの方法を推奨します。
+
+1. [Google Cloud Console](https://console.cloud.google.com/) を開き、対象プロジェクトを選択
+1. 右上の **「Cloud Shell をアクティブ化」** アイコン（`>_` マーク）をクリック
+1. **初回のみ**: リポジトリをクローン
+   ```bash
+   git clone <リポジトリURL>
+   cd billing-role-sync
+   ```
+1. **2回目以降**: 既存のディレクトリへ移動
+   ```bash
+   cd ~/billing-role-sync
+   git pull   # 最新版を取得する場合
+   ```
+1. `make run` などのコマンドを実行
+
+> **メモ**
+> Cloud Shell のホームディレクトリ（`~`）は永続化されるため、クローン済みのリポジトリは次回セッションでも残ります。
+
+### 方法 B: ローカル PC のターミナル（エンジニア向け）
+
+ローカルから実行する場合は [前提条件](#%E5%89%8D%E6%8F%90%E6%9D%A1%E4%BB%B6) に記載のツールをインストールし、事前に認証してください：
+
+```bash
+gcloud auth login
+gcloud auth application-default login
+gcloud config set project <PROJECT_ID>
+```
+
+その後はリポジトリをクローンして `make run` を実行します。
+
+### 方法 C: Cloud Console から直接 Cloud Run Job を実行（コマンド不要）
+
+`make` コマンドを使わず、ブラウザの UI だけでジョブを実行することも可能です。
+初回セットアップが完了済みであることが前提です。
+
+1. [Cloud Run Jobs](https://console.cloud.google.com/run/jobs) を開く
+
+1. `billing-role-sync-job` をクリック
+
+1. **「実行」** ボタンをクリック
+
+1. **「コンテナ、変数とシークレット、接続、セキュリティ」** を展開
+
+1. 「環境変数」で以下を上書き設定：
+
+   | 実行内容 | `APPLY_MODE` | `TARGET_DOMAINS` |
+   |---|---|---|
+   | Dry-Run（全顧客） | `false`（既定） | （空のまま） |
+   | Dry-Run（特定ドメイン） | `false`（既定） | `customer-a.com,customer-b.co.jp` |
+   | 本番実行（全顧客） | **`true`** | （空のまま） |
+   | 本番実行（特定ドメイン） | **`true`** | `customer-a.com` |
+
+1. **「実行」** で開始
+
+1. 実行結果は同画面の「実行履歴」、ログは `gs://{project}-billing-role-sync-logs/` で確認
+
+> **⚠️ 注意**
+> Cloud Console から実行する場合、`make run-apply` のような確認プロンプトは表示されません。
+> `APPLY_MODE=true` を設定する際は事前に Dry-Run で対象を必ず確認してください。
+
+______________________________________________________________________
+
 ## 初回セットアップ（エンジニア向け）
 
 ### Step 1. 設定ファイルの生成
@@ -193,9 +264,94 @@ Dry-Run を実行し、対象ユーザーの一覧が表示されれば正常で
 
 ______________________________________________________________________
 
+## 利用者を追加する
+
+このシステムはデプロイ済みの Cloud Run Job を **複数人で共有して利用できる** 設計です。
+デプロイ者（管理者）が新しい利用者（担当者）に必要な IAM 権限を付与すれば、すぐにツールを使い始められます。
+
+### Step 1. 管理者が IAM 権限を付与する
+
+新しい利用者には以下の最小権限を付与します。
+
+| ロール | 付与対象 | 用途 |
+|---|---|---|
+| `roles/run.invoker` | Cloud Run Job `billing-role-sync-job` | ジョブの実行 |
+| `roles/storage.objectViewer` | GCS バケット `{project}-billing-role-sync-logs` | ログの閲覧 |
+
+管理者が以下のコマンドを実行（`<NEW_USER_EMAIL>` を実際のメールアドレスに置き換え）：
+
+```bash
+# ジョブの実行権限を付与
+gcloud run jobs add-iam-policy-binding billing-role-sync-job \
+  --region=asia-northeast1 \
+  --project=<PROJECT_ID> \
+  --member="user:<NEW_USER_EMAIL>" \
+  --role="roles/run.invoker"
+
+# ログ閲覧権限を付与
+gcloud storage buckets add-iam-policy-binding gs://<PROJECT_ID>-billing-role-sync-logs \
+  --member="user:<NEW_USER_EMAIL>" \
+  --role="roles/storage.objectViewer"
+```
+
+### Step 2. 利用者が利用を開始する
+
+利用者は2つの方法から選べます。
+
+#### 方法 A: Cloud Console から直接実行（コマンド不要・最も簡単）
+
+リポジトリのクローン不要。[実行場所 → 方法 C](#%E5%AE%9F%E8%A1%8C%E5%A0%B4%E6%89%80) の手順をそのまま実施します。
+
+#### 方法 B: Cloud Shell から `make` コマンドを実行
+
+```bash
+# 利用者が実行
+git clone <リポジトリURL>
+cd billing-role-sync
+gcloud config set project <PROJECT_ID>
+make run                                            # Dry-Run（全顧客）
+make run-domain DOMAINS=customer-a.com              # Dry-Run（特定ドメイン）
+```
+
+> **メモ**
+> `make run` 系は既存の Cloud Run Job を実行するだけなので、利用者は以下が **不要** です：
+>
+> - `make setup`（`.env` / `terraform.tfvars` の生成）
+> - `make init` / `make apply` / `make init-deploy` などの Terraform 操作
+> - `make build` / `make push` などのコンテナ操作
+>
+> `gcloud config set project <PROJECT_ID>` で対象プロジェクトを指定するだけで `make run` が動きます。
+
+### 権限の取り消し
+
+利用者を外す場合：
+
+```bash
+gcloud run jobs remove-iam-policy-binding billing-role-sync-job \
+  --region=asia-northeast1 \
+  --project=<PROJECT_ID> \
+  --member="user:<USER_EMAIL>" \
+  --role="roles/run.invoker"
+
+gcloud storage buckets remove-iam-policy-binding gs://<PROJECT_ID>-billing-role-sync-logs \
+  --member="user:<USER_EMAIL>" \
+  --role="roles/storage.objectViewer"
+```
+
+### 役割の整理
+
+| 役割 | 担う作業 | 必要な権限 |
+|---|---|---|
+| **管理者** | 初回デプロイ・更新・削除・利用者の追加 | プロジェクト Owner/Editor、親請求先アカウント `billing.admin` |
+| **利用者** | Dry-Run / 本番実行 / ログ閲覧のみ | `run.invoker` + `storage.objectViewer`（上記の通り） |
+
+______________________________________________________________________
+
 ## 日常操作（担当者向け）
 
-> **前提**: 初回セットアップ済みで、Google Cloud Shell にログイン済みであること。
+> **前提**
+> 初回セットアップ済みで、[実行場所](#%E5%AE%9F%E8%A1%8C%E5%A0%B4%E6%89%80) の方法 A（Cloud Shell）でリポジトリのディレクトリに移動済みであること。
+> コマンドを使いたくない場合は [方法 C（Cloud Console から直接実行）](#%E5%AE%9F%E8%A1%8C%E5%A0%B4%E6%89%80) を参照してください。
 
 ### 対象ユーザーの確認（変更なし）
 
