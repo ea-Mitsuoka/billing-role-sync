@@ -15,7 +15,7 @@ variable "parent_billing_account_id" {
 }
 
 variable "your_domain" {
-  description = "自社ドメイン（権限変更の除外対象）"
+  description = "除外対象の自社ドメイン（カンマ区切りで複数指定可。例: e-agency.co.jp,group-company.co.jp）"
   type        = string
 }
 

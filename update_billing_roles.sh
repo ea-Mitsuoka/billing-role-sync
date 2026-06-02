@@ -9,6 +9,7 @@ set -euo pipefail
 # 設定項目 (環境変数での上書きを許容)
 # ==========================================
 PARENT_ACCOUNT_ID="${PARENT_ACCOUNT_ID:-XXXXXX-XXXXXX-XXXXXX}"
+# カンマ区切りで複数ドメインを指定可能 (例: e-agency.co.jp,group-company.co.jp)
 YOUR_DOMAIN="${YOUR_DOMAIN:-your-company.co.jp}"
 
 # ログファイルの設定
@@ -145,8 +146,21 @@ is_target_domain() {
     fi
 
     for MEMBER in ${ADMIN_MEMBERS}; do
-      # 自社ドメインは除外
-      if [[ "${MEMBER}" != user:* ]] || [[ "${MEMBER}" == *@${YOUR_DOMAIN} ]]; then
+      # user: プレフィックス以外は除外
+      if [[ "${MEMBER}" != user:* ]]; then
+        continue
+      fi
+      # 自社ドメイン（カンマ区切りで複数指定可）は除外
+      IS_OWN_DOMAIN=false
+      IFS=',' read -ra OWN_DOMAINS <<< "${YOUR_DOMAIN}"
+      for OWN in "${OWN_DOMAINS[@]}"; do
+        OWN="${OWN// /}"  # 前後の空白を除去
+        if [[ "${MEMBER}" == *@${OWN} ]]; then
+          IS_OWN_DOMAIN=true
+          break
+        fi
+      done
+      if ${IS_OWN_DOMAIN}; then
         continue
       fi
 

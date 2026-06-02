@@ -49,7 +49,8 @@ read -p "親請求先アカウントID (例: XXXXXX-XXXXXX-XXXXXX): " PARENT_BIL
 # [4/5] 自社ドメイン
 echo ""
 echo -e "${YELLOW}[4/5] 自社ドメイン（権限変更の除外対象）${NC}"
-read -p "自社ドメイン (例: your-company.co.jp): " YOUR_DOMAIN
+echo "複数ドメインはカンマ区切りで指定できます (例: e-agency.co.jp,group-company.co.jp)"
+read -p "自社ドメイン: " YOUR_DOMAIN
 [ -z "$YOUR_DOMAIN" ] && { echo -e "${RED}自社ドメインは必須です。${NC}"; exit 1; }
 
 # [5/5] TFステートバケット名

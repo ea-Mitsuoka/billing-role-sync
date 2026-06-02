@@ -36,7 +36,7 @@ ______________________________________________________________________
 ### 対象・除外
 
 - **対象**: 親請求先アカウント配下の全サブアカウントの `user:*` メンバー
-- **除外**: 自社ドメイン（`YOUR_DOMAIN`）を持つユーザー（運用管理者）
+- **除外**: 自社ドメイン（`YOUR_DOMAIN`）を持つユーザー（運用管理者）。カンマ区切りで複数ドメイン指定可
 - **絞り込み**: `--target-domain` / `DOMAINS` で特定顧客ドメインのみを対象にすることも可能
 
 ### 安全設計
@@ -221,7 +221,7 @@ make setup
 | GCPプロジェクトID | ツールをデプロイするプロジェクト | `my-project-id` |
 | リージョン | Cloud Run / Artifact Registry のリージョン | `asia-northeast1` |
 | 親請求先アカウントID | 処理対象の親アカウント | `XXXXXX-XXXXXX-XXXXXX` |
-| 自社ドメイン | 権限変更から**除外**するドメイン | `e-agency.co.jp` |
+| 自社ドメイン | 権限変更から**除外**するドメイン（カンマ区切りで複数指定可） | `e-agency.co.jp` または `e-agency.co.jp,group-co.jp` |
 | TFステートバケット名 | Terraform の状態管理用バケット名 | `myproject-billing-role-sync-tfstate` |
 
 完了すると `.env` と `terraform.tfvars` が生成されます。
