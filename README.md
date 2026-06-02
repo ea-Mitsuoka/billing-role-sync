@@ -118,10 +118,12 @@ ______________________________________________________________________
 ### 実行環境
 
 - Google Cloud Shell（推奨）またはローカル PC
-- `gcloud` CLI（beta コンポーネント含む）
-- `docker`（イメージビルド時のみ）
+- `gcloud` CLI（Cloud Shell に標準搭載）
 - `terraform` >= 1.5
 - `make`
+
+> **メモ**
+> イメージのビルド・プッシュは Cloud Build で行うため、`docker` のローカルインストールは不要です。
 
 ### GCP 権限
 
@@ -476,6 +478,7 @@ ______________________________________________________________________
 | Cloud Run Job | `billing-role-sync-job` | スクリプトの実行環境 |
 | GCS Bucket | `{project}-billing-role-sync-logs` | 実行ログの永続保存 |
 | Storage IAM Binding | `roles/storage.objectCreator` | SA からログバケットへの書き込み権限 |
+| Project IAM Binding | `roles/cloudbuild.builds.builder`（Compute Engine デフォルト SA） | Cloud Build によるイメージビルド権限 |
 
 ### API 有効化（destroy 時に無効化しない）
 
@@ -483,6 +486,7 @@ ______________________________________________________________________
 |---|---|
 | `run.googleapis.com` | Cloud Run |
 | `artifactregistry.googleapis.com` | Artifact Registry |
+| `cloudbuild.googleapis.com` | イメージビルド（Cloud Build） |
 | `iam.googleapis.com` | IAM |
 | `storage.googleapis.com` | Cloud Storage |
 
@@ -592,16 +596,19 @@ gcloud projects get-iam-policy $(gcloud config get-value project) \
   --filter="bindings.members:$(gcloud config get-value account)"
 ```
 
-### `make push` で認証エラーが出る
+### `make build` / `make push` で Cloud Build エラーが出る
 
 ```
-unauthorized: You don't have the needed permissions to perform this operation
+ERROR: (gcloud.builds.submit) ... does not have storage.objects.get access
 ```
 
-→ Docker の認証設定を更新してください。
+→ Cloud Build が使用する Compute Engine デフォルト SA に権限がありません。`terraform apply` で自動付与されるはずですが、手動で付与する場合：
 
 ```bash
-gcloud auth configure-docker asia-northeast1-docker.pkg.dev
+PROJECT_NUMBER=$(gcloud projects describe $(gcloud config get-value project) --format='value(projectNumber)')
+gcloud projects add-iam-policy-binding $(gcloud config get-value project) \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/cloudbuild.builds.builder"
 ```
 
 ### Cloud Run Job が `FAILED` になる
