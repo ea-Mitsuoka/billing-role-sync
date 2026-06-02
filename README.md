@@ -477,7 +477,7 @@ ______________________________________________________________________
 | Artifact Registry | `billing-role-sync-repo` | コンテナイメージの保管 |
 | Cloud Run Job | `billing-role-sync-job` | スクリプトの実行環境 |
 | GCS Bucket | `{project}-billing-role-sync-logs` | 実行ログの永続保存 |
-| Storage IAM Binding | `roles/storage.objectCreator` | SA からログバケットへの書き込み権限 |
+| Storage IAM Binding | `roles/storage.objectAdmin` | SA からログバケットへの書き込み・一覧取得権限 |
 | Project IAM Binding | `roles/cloudbuild.builds.builder`（Compute Engine デフォルト SA） | Cloud Build によるイメージビルド権限 |
 
 ### API 有効化（destroy 時に無効化しない）
