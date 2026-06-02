@@ -1,7 +1,7 @@
 FROM google/cloud-sdk:slim
 
-# beta コンポーネントをインストール（gcloud beta billing コマンドに必要）
-RUN gcloud components install beta --quiet
+# apt 経由で beta コンポーネントをインストール（slim イメージは component manager 無効のため）
+RUN apt-get update -y && apt-get install -y google-cloud-cli-beta && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
