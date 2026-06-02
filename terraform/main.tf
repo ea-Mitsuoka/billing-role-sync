@@ -4,6 +4,10 @@ locals {
   log_bucket = "${var.project_id}-${local.app_name}-logs"
 }
 
+data "google_project" "project" {
+  project_id = var.project_id
+}
+
 # ==============================================================================
 # API有効化
 # disable_on_destroy = false: 他アプリも同プロジェクトにデプロイされているため
@@ -21,6 +25,16 @@ resource "google_project_service" "required_apis" {
   project            = var.project_id
   service            = each.value
   disable_on_destroy = false
+}
+
+# Cloud Build が使用する Compute Engine デフォルト SA への権限付与
+# 新規 GCP プロジェクトでは cloudbuild.builds.builder を手動で付与する必要がある
+resource "google_project_iam_member" "compute_sa_cloudbuild" {
+  project = var.project_id
+  role    = "roles/cloudbuild.builds.builder"
+  member  = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+
+  depends_on = [google_project_service.required_apis]
 }
 
 # ==============================================================================
