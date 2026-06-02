@@ -14,3 +14,5 @@ billing_role_update_log_*.txt
 mail_template.md
 mail_template_prompt.md
 todo.md
+slides_build/
+.DS_Store

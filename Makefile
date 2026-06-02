@@ -97,6 +97,7 @@ init-deploy: ## 【初回のみ】Artifact Registry作成 → イメージビル
 	terraform -chdir=$(TF_DIR) apply \
 	  -target=google_project_service.required_apis \
 	  -target=google_artifact_registry_repository.billing_role_sync \
+	  -target=google_project_iam_member.compute_sa_cloudbuild \
 	  -var-file="../terraform.tfvars" \
 	  -auto-approve
 	@echo ""
