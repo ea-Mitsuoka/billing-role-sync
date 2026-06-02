@@ -1,0 +1,11 @@
+# 環境設定（プロジェクトID・ドメイン等の個人情報を含む）
+.env
+terraform.tfvars
+
+# Terraform（.terraform.lock.hcl はコミット対象のため除外しない）
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+
+# スクリプトが生成するログファイル
+billing_role_update_log_*.txt
