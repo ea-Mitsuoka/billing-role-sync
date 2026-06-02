@@ -82,16 +82,15 @@ destroy: ## インフラを全削除（APIの無効化は除く）
 # ==============================================================================
 # コンテナ管理
 # ==============================================================================
-.PHONY: _configure-docker build push init-deploy deploy
+.PHONY: build push init-deploy deploy
 
-_configure-docker:
-	gcloud auth configure-docker $(REGION)-docker.pkg.dev --quiet
+build: ## Dockerイメージをビルド＆Artifact Registryへプッシュ（Cloud Build使用）
+	gcloud builds submit \
+	  --tag $(IMAGE_NAME):$(IMAGE_TAG) \
+	  --project=$(PROJECT_ID) \
+	  .
 
-build: ## Dockerイメージをビルド
-	docker build -t $(IMAGE_NAME):$(IMAGE_TAG) .
-
-push: _configure-docker build ## Dockerイメージをビルド＆Artifact Registryへプッシュ
-	docker push $(IMAGE_NAME):$(IMAGE_TAG)
+push: build ## build の別名（後方互換）
 
 init-deploy: ## 【初回のみ】Artifact Registry作成 → イメージビルド → 全インフラ作成
 	@echo "Step 1/3: Artifact Registryを作成中..."
