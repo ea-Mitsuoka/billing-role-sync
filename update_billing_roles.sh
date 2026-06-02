@@ -99,6 +99,8 @@ is_target_domain() {
 {
   echo "=================================================="
   log_info "処理開始"
+  log_info "実行者             : ${INVOKED_BY:-不明}"
+  log_info "実行ID             : ${CLOUD_RUN_EXECUTION:-N/A (ローカル実行)}"
   log_info "親請求先アカウント : ${PARENT_ACCOUNT_ID}"
   log_info "除外対象ドメイン   : ${YOUR_DOMAIN}"
 

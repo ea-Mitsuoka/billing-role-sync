@@ -19,6 +19,9 @@ IMAGE_TAG        ?= latest
 JOB_NAME         := $(APP_NAME)-job
 LOG_BUCKET       := $(PROJECT_ID)-billing-role-sync-logs
 
+# 実行者識別（ジョブ実行時に環境変数として渡し、ログに記録する）
+INVOKER          := $(shell gcloud config get-value account 2>/dev/null)
+
 # ==============================================================================
 # ヘルプ
 # ==============================================================================
@@ -119,7 +122,7 @@ run: ## DRY-RUN: 全顧客の対象ユーザーを確認（変更なし）
 	gcloud run jobs execute $(JOB_NAME) \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID) \
-	  --update-env-vars="APPLY_MODE=false,TARGET_DOMAINS=" \
+	  --update-env-vars="APPLY_MODE=false,TARGET_DOMAINS=,INVOKED_BY=$(INVOKER)" \
 	  --wait
 
 run-domain: ## DRY-RUN: ドメイン指定で確認（例: make run-domain DOMAINS=a.com,b.co.jp）
@@ -127,28 +130,48 @@ run-domain: ## DRY-RUN: ドメイン指定で確認（例: make run-domain DOMAI
 	gcloud run jobs execute $(JOB_NAME) \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID) \
-	  --update-env-vars="APPLY_MODE=false,TARGET_DOMAINS=$(DOMAINS)" \
+	  --update-env-vars="APPLY_MODE=false,TARGET_DOMAINS=$(DOMAINS),INVOKED_BY=$(INVOKER)" \
 	  --wait
 
-run-apply: ## APPLY: 全顧客の権限を実際に変更（確認プロンプトあり）
-	@printf "\033[33m==========================================\n 【警告】実際に権限変更を行います\n==========================================\033[0m\n" ; \
-	read -p "本当に実行しますか？ (yes/no): " CONFIRM ; \
-	if [ "$$CONFIRM" != "yes" ]; then echo "キャンセルしました。"; exit 0; fi ; \
+run-apply: ## APPLY: 全顧客の権限を変更（自動Dry-Run → 結果表示 → 確認 → 本番実行）
+	@printf "\033[36m==========================================\n Step 1/2: Dry-Run 実行中... (約30〜60秒)\n==========================================\033[0m\n"
 	gcloud run jobs execute $(JOB_NAME) \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID) \
-	  --update-env-vars="APPLY_MODE=true,TARGET_DOMAINS=" \
+	  --update-env-vars="APPLY_MODE=false,TARGET_DOMAINS=,INVOKED_BY=$(INVOKER)" \
 	  --wait
-
-run-apply-domain: ## APPLY: ドメイン指定で実際に変更（例: make run-apply-domain DOMAINS=a.com,b.co.jp）
-	@if [ -z "$(DOMAINS)" ]; then echo "使い方: make run-apply-domain DOMAINS=a.com,b.co.jp"; exit 1; fi ; \
-	printf "\033[33m==========================================\n 【警告】$(DOMAINS) の権限変更を行います\n==========================================\033[0m\n" ; \
-	read -p "本当に実行しますか？ (yes/no): " CONFIRM ; \
-	if [ "$$CONFIRM" != "yes" ]; then echo "キャンセルしました。"; exit 0; fi ; \
+	@printf "\n\033[36m================ Dry-Run 結果 ================\033[0m\n"
+	@LATEST=$$(gcloud storage ls gs://$(LOG_BUCKET)/ 2>/dev/null | sort | tail -1) ; \
+	if [ -z "$$LATEST" ]; then echo "[ERROR] Dry-Run ログを取得できませんでした。"; exit 1; fi ; \
+	gcloud storage cat "$$LATEST"
+	@printf "\n\033[33m==========================================\n Step 2/2: 上記の対象に対して本番実行します\n==========================================\033[0m\n" ; \
+	read -p "上記の内容で本当に実行しますか？ (yes/no): " CONFIRM ; \
+	if [ "$$CONFIRM" != "yes" ]; then echo "キャンセルしました。本番実行は行われていません。"; exit 0; fi ; \
 	gcloud run jobs execute $(JOB_NAME) \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID) \
-	  --update-env-vars="APPLY_MODE=true,TARGET_DOMAINS=$(DOMAINS)" \
+	  --update-env-vars="APPLY_MODE=true,TARGET_DOMAINS=,INVOKED_BY=$(INVOKER)" \
+	  --wait
+
+run-apply-domain: ## APPLY: ドメイン指定で変更（自動Dry-Run → 結果表示 → 確認 → 本番実行）
+	@if [ -z "$(DOMAINS)" ]; then echo "使い方: make run-apply-domain DOMAINS=a.com,b.co.jp"; exit 1; fi
+	@printf "\033[36m==========================================\n Step 1/2: $(DOMAINS) の Dry-Run 実行中... (約30〜60秒)\n==========================================\033[0m\n"
+	gcloud run jobs execute $(JOB_NAME) \
+	  --region=$(REGION) \
+	  --project=$(PROJECT_ID) \
+	  --update-env-vars="APPLY_MODE=false,TARGET_DOMAINS=$(DOMAINS),INVOKED_BY=$(INVOKER)" \
+	  --wait
+	@printf "\n\033[36m================ Dry-Run 結果 ================\033[0m\n"
+	@LATEST=$$(gcloud storage ls gs://$(LOG_BUCKET)/ 2>/dev/null | sort | tail -1) ; \
+	if [ -z "$$LATEST" ]; then echo "[ERROR] Dry-Run ログを取得できませんでした。"; exit 1; fi ; \
+	gcloud storage cat "$$LATEST"
+	@printf "\n\033[33m==========================================\n Step 2/2: $(DOMAINS) に対して本番実行します\n==========================================\033[0m\n" ; \
+	read -p "上記の内容で本当に実行しますか？ (yes/no): " CONFIRM ; \
+	if [ "$$CONFIRM" != "yes" ]; then echo "キャンセルしました。本番実行は行われていません。"; exit 0; fi ; \
+	gcloud run jobs execute $(JOB_NAME) \
+	  --region=$(REGION) \
+	  --project=$(PROJECT_ID) \
+	  --update-env-vars="APPLY_MODE=true,TARGET_DOMAINS=$(DOMAINS),INVOKED_BY=$(INVOKER)" \
 	  --wait
 
 logs: ## 直近のジョブ実行ログを GCS から取得して表示
