@@ -10,6 +10,7 @@ terraform/terraform.tfstate.backup
 # スクリプトが生成するログファイル
 billing_role_update_log_*.txt
 
-# メールテンプレート（個人用メモ）
+# 個人用メモ
 mail_template.md
 mail_template_prompt.md
+todo.md
