@@ -122,7 +122,7 @@ is_target_domain() {
 
   log_info "サブアカウント一覧を取得中..."
   # gcloudコマンドのエラーハンドリング
-  if ! SUB_ACCOUNTS=$(gcloud beta billing subaccounts list --billing-account="${PARENT_ACCOUNT_ID}" --format="value(name)" | awk -F'/' '{print $2}'); then
+  if ! SUB_ACCOUNTS=$(gcloud billing accounts list --filter="masterBillingAccount=billingAccounts/${PARENT_ACCOUNT_ID}" --format="value(name)" | awk -F'/' '{print $NF}'); then
     log_err "サブアカウント一覧の取得に失敗しました。権限やアカウントIDを確認してください。"
     exit 1
   fi

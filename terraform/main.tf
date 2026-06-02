@@ -75,7 +75,7 @@ resource "google_storage_bucket" "billing_role_sync_logs" {
 # サービスアカウントにバケットへの書き込み権限を付与
 resource "google_storage_bucket_iam_member" "billing_role_sync_logs_writer" {
   bucket = google_storage_bucket.billing_role_sync_logs.name
-  role   = "roles/storage.objectCreator"
+  role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.billing_role_sync.email}"
 }
 
