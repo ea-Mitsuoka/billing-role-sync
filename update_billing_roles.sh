@@ -121,6 +121,18 @@ is_target_domain() {
   fi
   echo "=================================================="
 
+  # 安全ガード: 除外対象ドメイン(YOUR_DOMAIN)が未設定/既定プレースホルダのままだと
+  # 自社運用者の権限まで剥奪してしまうため、APPLY時は中断する（DRY-RUNは警告のみ）
+  if [[ -z "${YOUR_DOMAIN// /}" || "${YOUR_DOMAIN}" == "your-company.co.jp" ]]; then
+    if ${DRY_RUN}; then
+      log_warn "YOUR_DOMAIN が未設定（または既定値）です。除外対象が機能せず、自社運用者も対象として表示されます。"
+    else
+      log_err "YOUR_DOMAIN が未設定（または既定値 'your-company.co.jp'）のため中断します。"
+      log_err "除外対象ドメインを指定して再実行してください（例: YOUR_DOMAIN=your-domain.co.jp）。"
+      exit 1
+    fi
+  fi
+
   log_info "サブアカウント一覧を取得中..."
   # gcloudコマンドのエラーハンドリング
   if ! SUB_ACCOUNTS=$(gcloud billing accounts list --filter="masterBillingAccount=billingAccounts/${PARENT_ACCOUNT_ID}" --format="value(name)" | awk -F'/' '{print $NF}'); then
