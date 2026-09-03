@@ -145,6 +145,9 @@ is_target_domain() {
     exit 0
   fi
 
+  # 検出した対象ユーザー数（ドメイン指定時の「該当なし」判定に使用）
+  TARGET_FOUND=0
+
   for ACCOUNT_ID in ${SUB_ACCOUNTS}; do
     echo "--------------------------------------------------"
     log_info "サブアカウント [${ACCOUNT_ID}] を確認中..."
@@ -183,6 +186,7 @@ is_target_domain() {
       fi
 
       log_info "対象ユーザー検出: ${MEMBER}"
+      TARGET_FOUND=$((TARGET_FOUND + 1))
 
       if ${DRY_RUN}; then
         echo "    (予定) + roles/billing.user"
@@ -209,6 +213,15 @@ is_target_domain() {
   done
 
   echo "--------------------------------------------------"
+
+  # ドメイン指定ありで1件もマッチしなかった場合は、指定ミス（打ち間違い）の可能性を警告する
+  if [[ ${#TARGET_DOMAINS[@]} -gt 0 && ${TARGET_FOUND} -eq 0 ]]; then
+    log_warn "指定したドメイン (${TARGET_DOMAINS[*]}) に該当する対象ユーザーは1件も見つかりませんでした。"
+    log_warn "ドメイン名の打ち間違いがないか確認してください（例: .com / .co.jp の誤りなど）。"
+  else
+    log_info "対象ユーザー検出数: ${TARGET_FOUND} 件"
+  fi
+
   log_info "処理終了"
 } 2>&1 | tee "${LOG_FILE}"
 

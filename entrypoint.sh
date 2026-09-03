@@ -10,11 +10,23 @@ if [[ "${APPLY_MODE:-false}" == "true" ]]; then
 fi
 
 if [[ -n "${TARGET_DOMAINS:-}" ]]; then
+  DOMAIN_COUNT=0
   IFS=',' read -ra DOMAINS <<< "${TARGET_DOMAINS}"
   for domain in "${DOMAINS[@]}"; do
     domain="${domain// /}"
-    [[ -n "$domain" ]] && ARGS+=("--target-domain" "$domain")
+    if [[ -n "$domain" ]]; then
+      ARGS+=("--target-domain" "$domain")
+      DOMAIN_COUNT=$((DOMAIN_COUNT + 1))
+    fi
   done
+
+  # 安全ガード: TARGET_DOMAINS を指定しているのに有効なドメインが0件だと、
+  # 引数が渡らず「全顧客が対象」に拡大してしまうため中断する（例: " " や "," のみ）
+  if [[ ${DOMAIN_COUNT} -eq 0 ]]; then
+    echo "[ERROR] TARGET_DOMAINS が指定されていますが、有効なドメインが1件もありません（値: '${TARGET_DOMAINS}'）。" >&2
+    echo "[ERROR] 意図せず全顧客が対象になるのを防ぐため中断します。ドメイン指定を確認してください。" >&2
+    exit 1
+  fi
 fi
 
 # スクリプト実行（失敗してもログアップロードを試みるため exit code を保持）
