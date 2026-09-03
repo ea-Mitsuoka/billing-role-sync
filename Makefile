@@ -126,7 +126,7 @@ run: ## DRY-RUN: 全顧客の対象ユーザーを確認（変更なし）
 	  --wait
 
 run-domain: ## DRY-RUN: ドメイン指定で確認（例: make run-domain DOMAINS=a.com,b.co.jp）
-	@[ "$(DOMAINS)" ] || (echo "使い方: make run-domain DOMAINS=a.com,b.co.jp" && exit 1)
+	@if [ -z "$$(echo '$(DOMAINS)' | tr -d ' ,')" ]; then echo "使い方: make run-domain DOMAINS=a.com,b.co.jp"; exit 1; fi
 	gcloud run jobs execute $(JOB_NAME) \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID) \
@@ -154,7 +154,7 @@ run-apply: ## APPLY: 全顧客の権限を変更（自動Dry-Run → 結果表�
 	  --wait
 
 run-apply-domain: ## APPLY: ドメイン指定で変更（自動Dry-Run → 結果表示 → 確認 → 本番実行）
-	@if [ -z "$(DOMAINS)" ]; then echo "使い方: make run-apply-domain DOMAINS=a.com,b.co.jp"; exit 1; fi
+	@if [ -z "$$(echo '$(DOMAINS)' | tr -d ' ,')" ]; then echo "使い方: make run-apply-domain DOMAINS=a.com,b.co.jp"; exit 1; fi
 	@printf "\033[36m==========================================\n Step 1/2: $(DOMAINS) の Dry-Run 実行中... (約30〜60秒)\n==========================================\033[0m\n"
 	gcloud run jobs execute $(JOB_NAME) \
 	  --region=$(REGION) \
