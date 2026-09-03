@@ -277,7 +277,7 @@ ______________________________________________________________________
 
 | ロール | 付与対象 | 用途 |
 |---|---|---|
-| `roles/run.invoker` | Cloud Run Job `billing-role-sync-job` | ジョブの実行 |
+| `roles/run.developer` | Cloud Run Job `billing-role-sync-job` | ジョブの実行 |
 | `roles/storage.objectViewer` | GCS バケット `{project}-billing-role-sync-logs` | ログの閲覧 |
 
 管理者が以下のコマンドを実行（`<NEW_USER_EMAIL>` を実際のメールアドレスに置き換え）：
@@ -288,7 +288,7 @@ gcloud run jobs add-iam-policy-binding billing-role-sync-job \
   --region=asia-northeast1 \
   --project=<PROJECT_ID> \
   --member="user:<NEW_USER_EMAIL>" \
-  --role="roles/run.invoker"
+  --role="roles/run.developer"
 
 # ログ閲覧権限を付与
 gcloud storage buckets add-iam-policy-binding gs://<PROJECT_ID>-billing-role-sync-logs \
@@ -333,7 +333,7 @@ gcloud run jobs remove-iam-policy-binding billing-role-sync-job \
   --region=asia-northeast1 \
   --project=<PROJECT_ID> \
   --member="user:<USER_EMAIL>" \
-  --role="roles/run.invoker"
+  --role="roles/run.developer"
 
 gcloud storage buckets remove-iam-policy-binding gs://<PROJECT_ID>-billing-role-sync-logs \
   --member="user:<USER_EMAIL>" \
@@ -345,7 +345,7 @@ gcloud storage buckets remove-iam-policy-binding gs://<PROJECT_ID>-billing-role-
 | 役割 | 担う作業 | 必要な権限 |
 |---|---|---|
 | **管理者** | 初回デプロイ・更新・削除・利用者の追加 | プロジェクト Owner/Editor、親請求先アカウント `billing.admin` |
-| **利用者** | Dry-Run / 本番実行 / ログ閲覧のみ | `run.invoker` + `storage.objectViewer`（上記の通り） |
+| **利用者** | Dry-Run / 本番実行 / ログ閲覧のみ | `run.developer` + `storage.objectViewer`（上記の通り） |
 
 ______________________________________________________________________
 
@@ -479,6 +479,51 @@ ______________________________________________________________________
 | GCS Bucket | `{project}-billing-role-sync-logs` | 実行ログの永続保存 |
 | Storage IAM Binding | `roles/storage.objectAdmin` | SA からログバケットへの書き込み・一覧取得権限 |
 | Project IAM Binding | `roles/cloudbuild.builds.builder`（Compute Engine デフォルト SA） | Cloud Build によるイメージビルド権限 |
+
+### サービスアカウントの権限
+
+Cloud Run Job は専用のサービスアカウント `billing-role-sync-sa@{project}.iam.gserviceaccount.com` として実行されます。
+このSAが持つロールは以下の**2つのみ**です。
+
+| 付与先リソース（スコープ） | ロール | 用途 |
+|---|---|---|
+| **親請求先アカウント**（`PARENT_ACCOUNT_ID`） | `roles/billing.admin` | 配下サブアカウントの請求IAMの読み取り・変更（本ツールの中核機能） |
+| **GCSバケット** `{project}-billing-role-sync-logs` | `roles/storage.objectAdmin` | 実行ログの書き込み・一覧取得 |
+
+#### スコープの補足
+
+請求先アカウントのIAMは**プロジェクトや組織には継承されません**（請求先アカウントはIAM上、プロジェクトの親ではないため）。
+そのため、このSAの権限は上記2リソースに限定されます。
+
+**できること**
+
+- 親請求先アカウント配下のサブアカウントに対するIAMポリシーの取得・付与・剥奪
+- ログバケットへのファイル書き込み
+
+**できないこと**
+
+- プロジェクト内リソース（Compute Engine、BigQuery等）へのアクセス（プロジェクトレベルのロールを一切持たないため）
+- 組織・フォルダに対する操作
+- サポートケースの起票（`cloudsupport.*` 権限を持たないため）
+- 上記以外のGCSバケットへのアクセス
+
+#### 実環境での確認方法
+
+いずれも読み取り専用のコマンドです。
+
+```bash
+# 親請求先アカウントでの権限を確認
+gcloud beta billing accounts get-iam-policy <PARENT_ACCOUNT_ID> --format=json
+
+# ログバケットでの権限を確認
+gcloud storage buckets get-iam-policy gs://<PROJECT_ID>-billing-role-sync-logs
+
+# プロジェクトに権限を持たないことを確認（何も出力されないのが正常）
+gcloud projects get-iam-policy <PROJECT_ID> \
+  --flatten="bindings[].members" \
+  --filter="bindings.members:billing-role-sync-sa@<PROJECT_ID>.iam.gserviceaccount.com" \
+  --format="table(bindings.role)"
+```
 
 ### API 有効化（destroy 時に無効化しない）
 
