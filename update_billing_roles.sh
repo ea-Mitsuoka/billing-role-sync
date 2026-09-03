@@ -145,12 +145,19 @@ is_target_domain() {
     exit 0
   fi
 
-  # 検出した対象ユーザー数（ドメイン指定時の「該当なし」判定に使用）
-  TARGET_FOUND=0
+  # 実行サマリー用のカウンタと対象ユーザーの記録
+  TARGET_FOUND=0        # 検出した対象ユーザー数（ドメイン指定時の「該当なし」判定にも使用）
+  ACCOUNT_COUNT=0       # 確認したサブアカウント数
+  SKIP_OWN_TOTAL=0      # 自社ドメインのため除外した数
+  SKIP_SCOPE_TOTAL=0    # 対象外ドメインのため除外した数
+  TARGET_LIST=""        # 対象ユーザーの一覧（サマリーで表示）
 
   for ACCOUNT_ID in ${SUB_ACCOUNTS}; do
     echo "--------------------------------------------------"
     log_info "サブアカウント [${ACCOUNT_ID}] を確認中..."
+    ACCOUNT_COUNT=$((ACCOUNT_COUNT + 1))
+    SKIP_OWN_IN_ACCOUNT=0
+    SKIP_SCOPE_IN_ACCOUNT=0
 
     if ! ADMIN_MEMBERS=$(gcloud beta billing accounts get-iam-policy "${ACCOUNT_ID}" \
       --flatten="bindings[].members" \
@@ -176,17 +183,21 @@ is_target_domain() {
         fi
       done
       if ${IS_OWN_DOMAIN}; then
+        SKIP_OWN_IN_ACCOUNT=$((SKIP_OWN_IN_ACCOUNT + 1))
         continue
       fi
 
       # 対象ドメインフィルタ
+      # 個別のメールアドレスは出力せず件数のみ集約する
+      # （ログの可読性確保と、無関係な他顧客の情報を残さないため）
       if ! is_target_domain "${MEMBER}"; then
-        log_info "対象外ドメインのためスキップ: ${MEMBER}"
+        SKIP_SCOPE_IN_ACCOUNT=$((SKIP_SCOPE_IN_ACCOUNT + 1))
         continue
       fi
 
       log_info "対象ユーザー検出: ${MEMBER}"
       TARGET_FOUND=$((TARGET_FOUND + 1))
+      TARGET_LIST+="  [${ACCOUNT_ID}] ${MEMBER}"$'\n'
 
       if ${DRY_RUN}; then
         echo "    (予定) + roles/billing.user"
@@ -210,16 +221,55 @@ is_target_domain() {
         log_info "[${ACCOUNT_ID}] ${MEMBER} のロール更新が完了しました。"
       fi
     done
+
+    # このサブアカウントで除外した件数を集約して出力する
+    if [[ ${SKIP_OWN_IN_ACCOUNT} -gt 0 ]]; then
+      log_info "  自社ドメインのため除外: ${SKIP_OWN_IN_ACCOUNT} 件"
+      SKIP_OWN_TOTAL=$((SKIP_OWN_TOTAL + SKIP_OWN_IN_ACCOUNT))
+    fi
+    if [[ ${SKIP_SCOPE_IN_ACCOUNT} -gt 0 ]]; then
+      log_info "  対象外ドメインのため除外: ${SKIP_SCOPE_IN_ACCOUNT} 件"
+      SKIP_SCOPE_TOTAL=$((SKIP_SCOPE_TOTAL + SKIP_SCOPE_IN_ACCOUNT))
+    fi
   done
 
+  # ==========================================
+  # 実行サマリー（何に対して何をしたかを一覧で示す）
+  # ==========================================
+  echo ""
+  echo "=================================================="
+  echo " 実行サマリー"
   echo "--------------------------------------------------"
+  if ${DRY_RUN}; then
+    echo " モード              : DRY-RUN（変更なし）"
+  else
+    echo " モード              : APPLY（実際に権限を変更）"
+  fi
+  if [[ ${#TARGET_DOMAINS[@]} -gt 0 ]]; then
+    echo " 対象顧客ドメイン    : ${TARGET_DOMAINS[*]}"
+  else
+    echo " 対象顧客ドメイン    : (指定なし - 全外部ユーザー)"
+  fi
+  echo " 実行者              : ${INVOKED_BY:-不明}"
+  echo " 確認サブアカウント  : ${ACCOUNT_COUNT} 件"
+  echo " 自社ドメイン除外    : ${SKIP_OWN_TOTAL} 件"
+  echo " 対象外ドメイン除外  : ${SKIP_SCOPE_TOTAL} 件"
+  if ${DRY_RUN}; then
+    echo " 対象ユーザー        : ${TARGET_FOUND} 件（変更予定）"
+  else
+    echo " 対象ユーザー        : ${TARGET_FOUND} 件（変更実施）"
+  fi
+
+  if [[ ${TARGET_FOUND} -gt 0 ]]; then
+    echo "--------------------------------------------------"
+    printf '%s' "${TARGET_LIST}"
+  fi
+  echo "=================================================="
 
   # ドメイン指定ありで1件もマッチしなかった場合は、指定ミス（打ち間違い）の可能性を警告する
   if [[ ${#TARGET_DOMAINS[@]} -gt 0 && ${TARGET_FOUND} -eq 0 ]]; then
     log_warn "指定したドメイン (${TARGET_DOMAINS[*]}) に該当する対象ユーザーは1件も見つかりませんでした。"
     log_warn "ドメイン名の打ち間違いがないか確認してください（例: .com / .co.jp の誤りなど）。"
-  else
-    log_info "対象ユーザー検出数: ${TARGET_FOUND} 件"
   fi
 
   log_info "処理終了"
