@@ -10,10 +10,16 @@ terraform/terraform.tfstate.backup
 # スクリプトが生成するログファイル
 billing_role_update_log_*.txt
 
+# 利用者向けスライド資料
+# 生成元の gen.js と依存定義は追跡し、依存の実体と生成物は除外する
+slides_build/node_modules/
+slides_build/*.pptx
+
+# 配布用スライド（編集を加えた成果物のため個別管理）
+billing-role-sync_user_guide.pptx
+
 # 個人用メモ
 mail_template.md
 mail_template_prompt.md
 todo.md
-slides_build/
 .DS_Store
-billing-role-sync_user_guide.pptx
