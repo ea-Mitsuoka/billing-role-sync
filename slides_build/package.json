@@ -1,0 +1,14 @@
+{
+  "name": "billing-role-sync-slides",
+  "version": "1.0.0",
+  "private": true,
+  "description": "利用者向けスライド資料（利用ガイド）の生成スクリプト",
+  "scripts": {
+    "build": "node gen.js"
+  },
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "dependencies": {
+    "pptxgenjs": "^4.0.1"
+  }
+}
