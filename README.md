@@ -46,6 +46,14 @@ ______________________________________________________________________
 - 変更前に対話的な確認プロンプトを表示
 - 全実行ログを GCS バケットに自動保存（365日後に自動削除）
 
+さらに、設定ミスによる事故を防ぐため以下のガードを設けています。
+
+| ガード | 内容 |
+|---|---|
+| **自社ドメイン未設定の検出** | `YOUR_DOMAIN` が未設定（または既定のプレースホルダのまま）で `--apply` を実行すると、自社運用者の権限まで剥奪される恐れがあるため**処理を中断**します。Dry-Run では警告のみ表示します |
+| **ドメイン打ち間違いの検出** | ドメインを指定したのに対象ユーザーが1件も見つからない場合、**打ち間違いの可能性を警告**します（「本当に対象者がいない」との区別がつくようにするため） |
+| **ドメイン空指定の検出** | `DOMAINS=" "` や `DOMAINS=","` のように有効なドメインが0件になる指定は、**意図せず全顧客が対象に拡大する**ため中断します |
+
 ______________________________________________________________________
 
 ## アーキテクチャ
@@ -104,7 +112,8 @@ ______________________________________________________________________
 │   └── outputs.tf               # 出力値
 ├── .env.example                 # 環境変数ファイルのサンプル
 ├── .gitignore
-└── requirements.md              # 要件定義書
+├── requirements.md              # 要件定義書
+└── explanation_code.md          # スクリプト設計の補足メモ
 ```
 
 > **Git 管理について**
@@ -479,8 +488,8 @@ init                   TFステートバケット作成 + terraform init
 plan                   terraform plan（変更内容を事前確認）
 apply                  terraform apply（インフラ作成・更新）
 destroy                インフラを全削除（APIの無効化は除く）
-build                  Dockerイメージをビルド
-push                   Dockerイメージをビルド＆Artifact Registryへプッシュ
+build                  Dockerイメージをビルド＆Artifact Registryへプッシュ（Cloud Build使用）
+push                   build の別名（後方互換）
 init-deploy            【初回のみ】Artifact Registry作成 → イメージビルド → 全インフラ作成
 deploy                 イメージ更新＋インフラ更新（2回目以降の更新用）
 run                    DRY-RUN: 全顧客の対象ユーザーを確認（変更なし）
@@ -720,10 +729,26 @@ gcloud logging read \
 - SA に `roles/billing.admin` が付与されていない → `make apply` を再実行
 - 親請求先アカウントIDが誤っている → `terraform.tfvars` を確認
 
+### `make run` で `PERMISSION_DENIED` になる
+
+```
+ERROR: (gcloud.run.jobs.execute) PERMISSION_DENIED: Permission 'run.jobs.get'
+denied on resource 'namespaces/{project}/jobs/billing-role-sync-job'
+```
+
+→ 利用者に付与されているロールが `roles/run.invoker` の可能性があります。
+
+`make run` 系は `--update-env-vars` でジョブ構成を上書きして実行するため、`roles/run.developer` が必要です。`roles/run.invoker` は構成を上書きしない単純な実行にしか対応していません。[利用者を追加する](#%E5%88%A9%E7%94%A8%E8%80%85%E3%82%92%E8%BF%BD%E5%8A%A0%E3%81%99%E3%82%8B) の手順で `roles/run.developer` を付与してください。
+
+### `make logs` で権限エラーになる
+
+→ ログバケットへの `roles/storage.objectViewer` が付与されていない可能性があります。`make run` は GCS を参照しないため、この権限がなくてもジョブ実行だけは成功する点に注意してください。
+
 ### `make run` で対象ユーザーが表示されない
 
 - 対象サブアカウントに `roles/billing.admin` を持つ `user:*` メンバーが存在しない場合は正常です
-- `DOMAINS` を指定している場合、該当ドメインのユーザーが存在しない可能性があります
+- `DOMAINS` を指定していて対象が0件の場合、ログに **打ち間違いの可能性を知らせる警告** が出力されます。ドメイン名（`.com` / `.co.jp` の取り違えなど）を確認してください
+- 実行内容の全体像は、ログ末尾の [実行サマリー](#%E3%83%AD%E3%82%B0%E3%81%AE%E7%A2%BA%E8%AA%8D) で確認できます
 
 ### Terraform state が壊れた・初期化をやり直したい
 
