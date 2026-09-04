@@ -416,7 +416,17 @@ make logs
 
 # 過去のログファイル一覧を表示
 make logs-list
+
+# 一覧から特定のログを指定して表示（フルパス / ファイル名のどちらでも可）
+make logs FILE=gs://{project}-billing-role-sync-logs/billing_role_update_log_20260903_121324.txt
+make logs FILE=billing_role_update_log_20260903_121324.txt
 ```
+
+`make logs-list` で一覧を確認し、見たいログを `FILE=` に指定します。一覧の出力をそのまま貼り付けられます。
+
+> **メモ**
+> 変数名は `FILE` です。`PATH` はシェルの実行パスと衝突し `gcloud` が動かなくなるため使えません。
+> 誤って `PATH=` を指定した場合はエラーメッセージで `FILE=` を案内します。
 
 ログファイルは `gs://{project}-billing-role-sync-logs/` に保存されます。Cloud Console から [Cloud Storage](https://console.cloud.google.com/storage) でも確認できます。
 
@@ -477,7 +487,7 @@ run                    DRY-RUN: 全顧客の対象ユーザーを確認（変更
 run-domain             DRY-RUN: ドメイン指定で確認（例: make run-domain DOMAINS=a.com,b.co.jp）
 run-apply              APPLY: 全顧客の権限を変更（自動Dry-Run → 結果表示 → 確認 → 本番実行）
 run-apply-domain       APPLY: ドメイン指定で変更（自動Dry-Run → 結果表示 → 確認 → 本番実行）
-logs                   直近のジョブ実行ログを GCS から取得して表示
+logs                   ジョブ実行ログを表示（FILE= 指定で任意のログ、省略時は直近）
 logs-list              GCS に保存されたログファイル一覧を表示
 ```
 

@@ -174,13 +174,29 @@ run-apply-domain: ## APPLY: ドメイン指定で変更（自動Dry-Run → 結�
 	  --update-env-vars="APPLY_MODE=true,TARGET_DOMAINS=$(DOMAINS),INVOKED_BY=$(INVOKER)" \
 	  --wait
 
-logs: ## 直近のジョブ実行ログを GCS から取得して表示
-	@LATEST=$$(gcloud storage ls gs://$(LOG_BUCKET)/ 2>/dev/null | sort | tail -1) ; \
-	if [ -z "$$LATEST" ]; then echo "ログファイルがまだありません。ジョブを実行してください。"; exit 0; fi ; \
-	echo "取得中: $$LATEST" ; \
+logs: ## ジョブ実行ログを表示（FILE= 指定で任意のログ、省略時は直近）
+	@case "$(PATH)" in gs://*) \
+	  echo "[ERROR] PATH はシェルの環境変数と衝突するため使用できません。" >&2 ; \
+	  echo "        FILE= を使ってください: make logs FILE=$(PATH)" >&2 ; \
+	  exit 1 ;; \
+	esac ; \
+	if [ -n "$(FILE)" ]; then \
+	  case "$(FILE)" in \
+	    gs://*) TARGET="$(FILE)" ;; \
+	    *)      TARGET="gs://$(LOG_BUCKET)/$(FILE)" ;; \
+	  esac ; \
+	else \
+	  TARGET=$$(gcloud storage ls gs://$(LOG_BUCKET)/ 2>/dev/null | sort | tail -1) ; \
+	  if [ -z "$$TARGET" ]; then echo "ログファイルがまだありません。ジョブを実行してください。"; exit 0; fi ; \
+	fi ; \
+	echo "取得中: $$TARGET" ; \
 	echo "" ; \
-	gcloud storage cat "$$LATEST"
+	gcloud storage cat "$$TARGET" \
+	  || (echo "[ERROR] ログを取得できませんでした: $$TARGET" >&2 ; \
+	      echo "        make logs-list で利用可能なログを確認してください。" >&2 ; exit 1)
 
 logs-list: ## GCS に保存されたログファイル一覧を表示
 	@gcloud storage ls gs://$(LOG_BUCKET)/ 2>/dev/null \
+	  && echo "" \
+	  && echo "特定のログを表示: make logs FILE=<上記のパス、またはファイル名>" \
 	  || echo "ログファイルがまだありません。ジョブを実行してください。"
