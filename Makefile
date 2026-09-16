@@ -22,6 +22,12 @@ LOG_BUCKET       := $(PROJECT_ID)-billing-role-sync-logs
 # 実行者識別（ジョブ実行時に環境変数として渡し、ログに記録する）
 INVOKER          := $(shell gcloud config get-value account 2>/dev/null)
 
+# --update-env-vars の区切り文字を「,」から「|」に変更するための宣言
+# DOMAINS が a.com,b.com のようにカンマを含むと、既定のカンマ区切りでは
+# 環境変数の境目と誤認され "Bad syntax for dict arg" で失敗するため。
+# INVOKED_BY がメールアドレス（@ を含む）なので、区切りには @ を使わない。
+ENV_SEP          := ^|^
+
 # ==============================================================================
 # ヘルプ
 # ==============================================================================
@@ -122,7 +128,7 @@ run: ## DRY-RUN: 全顧客の対象ユーザーを確認（変更なし）
 	gcloud run jobs execute $(JOB_NAME) \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID) \
-	  --update-env-vars="APPLY_MODE=false,TARGET_DOMAINS=,INVOKED_BY=$(INVOKER)" \
+	  --update-env-vars="$(ENV_SEP)APPLY_MODE=false|TARGET_DOMAINS=|INVOKED_BY=$(INVOKER)" \
 	  --wait
 
 run-domain: ## DRY-RUN: ドメイン指定で確認（例: make run-domain DOMAINS=a.com,b.co.jp）
@@ -130,7 +136,7 @@ run-domain: ## DRY-RUN: ドメイン指定で確認（例: make run-domain DOMAI
 	gcloud run jobs execute $(JOB_NAME) \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID) \
-	  --update-env-vars="APPLY_MODE=false,TARGET_DOMAINS=$(DOMAINS),INVOKED_BY=$(INVOKER)" \
+	  --update-env-vars="$(ENV_SEP)APPLY_MODE=false|TARGET_DOMAINS=$(DOMAINS)|INVOKED_BY=$(INVOKER)" \
 	  --wait
 
 run-apply: ## APPLY: 全顧客の権限を変更（自動Dry-Run → 結果表示 → 確認 → 本番実行）
@@ -138,7 +144,7 @@ run-apply: ## APPLY: 全顧客の権限を変更（自動Dry-Run → 結果表�
 	gcloud run jobs execute $(JOB_NAME) \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID) \
-	  --update-env-vars="APPLY_MODE=false,TARGET_DOMAINS=,INVOKED_BY=$(INVOKER)" \
+	  --update-env-vars="$(ENV_SEP)APPLY_MODE=false|TARGET_DOMAINS=|INVOKED_BY=$(INVOKER)" \
 	  --wait
 	@printf "\n\033[36m================ Dry-Run 結果 ================\033[0m\n"
 	@LATEST=$$(gcloud storage ls gs://$(LOG_BUCKET)/ 2>/dev/null | sort | tail -1) ; \
@@ -150,7 +156,7 @@ run-apply: ## APPLY: 全顧客の権限を変更（自動Dry-Run → 結果表�
 	gcloud run jobs execute $(JOB_NAME) \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID) \
-	  --update-env-vars="APPLY_MODE=true,TARGET_DOMAINS=,INVOKED_BY=$(INVOKER)" \
+	  --update-env-vars="$(ENV_SEP)APPLY_MODE=true|TARGET_DOMAINS=|INVOKED_BY=$(INVOKER)" \
 	  --wait
 
 run-apply-domain: ## APPLY: ドメイン指定で変更（自動Dry-Run → 結果表示 → 確認 → 本番実行）
@@ -159,7 +165,7 @@ run-apply-domain: ## APPLY: ドメイン指定で変更（自動Dry-Run → 結�
 	gcloud run jobs execute $(JOB_NAME) \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID) \
-	  --update-env-vars="APPLY_MODE=false,TARGET_DOMAINS=$(DOMAINS),INVOKED_BY=$(INVOKER)" \
+	  --update-env-vars="$(ENV_SEP)APPLY_MODE=false|TARGET_DOMAINS=$(DOMAINS)|INVOKED_BY=$(INVOKER)" \
 	  --wait
 	@printf "\n\033[36m================ Dry-Run 結果 ================\033[0m\n"
 	@LATEST=$$(gcloud storage ls gs://$(LOG_BUCKET)/ 2>/dev/null | sort | tail -1) ; \
@@ -171,7 +177,7 @@ run-apply-domain: ## APPLY: ドメイン指定で変更（自動Dry-Run → 結�
 	gcloud run jobs execute $(JOB_NAME) \
 	  --region=$(REGION) \
 	  --project=$(PROJECT_ID) \
-	  --update-env-vars="APPLY_MODE=true,TARGET_DOMAINS=$(DOMAINS),INVOKED_BY=$(INVOKER)" \
+	  --update-env-vars="$(ENV_SEP)APPLY_MODE=true|TARGET_DOMAINS=$(DOMAINS)|INVOKED_BY=$(INVOKER)" \
 	  --wait
 
 logs: ## ジョブ実行ログを表示（FILE= 指定で任意のログ、省略時は直近）

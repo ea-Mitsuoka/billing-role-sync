@@ -748,6 +748,19 @@ gcloud logging read \
 - SA に `roles/billing.admin` が付与されていない → `make apply` を再実行
 - 親請求先アカウントIDが誤っている → `terraform.tfvars` を確認
 
+### `DOMAINS=` に複数ドメインを指定すると `Bad syntax for dict arg` になる
+
+```
+ERROR: (gcloud.run.jobs.execute) argument --update-env-vars:
+Bad syntax for dict arg: [b.co.jp].
+```
+
+→ 修正済みです。最新版を取得してください（`git pull`）。
+
+`gcloud` の `--update-env-vars` は既定でカンマを環境変数の区切りとして扱うため、`DOMAINS=a.com,b.co.jp` のカンマが区切りと誤認されていました。現在は区切り文字を `|` に変更して回避しています。
+
+このエラーは `gcloud` がローカルで引数を解析する段階で発生し、ジョブが起動しないため **GCS にログが残りません**。「実行できないのにログもない」場合はこれを疑ってください。
+
 ### `make run` で `PERMISSION_DENIED` になる
 
 ```
