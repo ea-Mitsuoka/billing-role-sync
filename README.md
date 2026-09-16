@@ -180,15 +180,21 @@ ______________________________________________________________________
    git clone <リポジトリURL>
    cd billing-role-sync
    ```
-1. **2回目以降**: 既存のディレクトリへ移動
+1. **2回目以降**: 既存のディレクトリへ移動し、最新版に更新
    ```bash
    cd ~/billing-role-sync
-   git pull   # 最新版を取得する場合
+   git fetch origin
+   git reset --hard origin/main
    ```
 1. `make run` などのコマンドを実行
 
 > **メモ**
 > Cloud Shell のホームディレクトリ（`~`）は永続化されるため、クローン済みのリポジトリは次回セッションでも残ります。
+
+> **更新コマンドについて**
+> `git pull` ではなく `git fetch` + `git reset --hard` を使います。`git pull` は状況によって競合で中断することがありますが（[トラブルシューティング](#%E3%83%88%E3%83%A9%E3%83%96%E3%83%AB%E3%82%B7%E3%83%A5%E3%83%BC%E3%83%86%E3%82%A3%E3%83%B3%E3%82%B0) 参照）、この手順はリモートの状態に強制的に合わせるため確実です。何度実行しても同じ結果になります。
+>
+> ただし `git reset --hard` は**追跡ファイルへの未コミット変更を破棄します**。リポジトリを自分で編集している場合は、事前に `git status` で確認してください。なお `.env` と `terraform.tfvars` は Git 管理外のため、このコマンドでは消えません。
 
 ### 方法 B: ローカル PC のターミナル（エンジニア向け）
 
@@ -748,6 +754,31 @@ gcloud logging read \
 - SA に `roles/billing.admin` が付与されていない → `make apply` を再実行
 - 親請求先アカウントIDが誤っている → `terraform.tfvars` を確認
 
+### `git pull` が `untracked working tree files would be overwritten` で中断する
+
+```
+error: The following untracked working tree files would be overwritten by merge:
+        terraform/.terraform.lock.hcl
+Please move or remove them before you merge.
+Aborting
+```
+
+→ 次のコマンドで解消します。
+
+```bash
+cd ~/billing-role-sync
+git fetch origin
+git reset --hard origin/main
+```
+
+**原因**: 過去に `make init`（terraform init）を実行した環境には `terraform/.terraform.lock.hcl` がローカル生成されています。後にこのファイルがリポジトリの管理対象に加わったため、`git pull`（= fetch + merge）が「追跡外のファイルを上書きすることになる」と判断して中断します。
+
+`git reset --hard` はリモートの状態に強制的に合わせる動作のため、この競合が起きません。
+
+> **注意**: `Aborting` と表示された場合、**コミットは1つも取り込まれていません**。`git log` で最新のコミットが入っているか確認してください。
+>
+> なお、この事象は `make init` を実行した管理者の古いクローンでのみ発生します。新規クローンや、`make run` のみを使う利用者には発生しません。
+
 ### `DOMAINS=` に複数ドメインを指定すると `Bad syntax for dict arg` になる
 
 ```
@@ -755,7 +786,7 @@ ERROR: (gcloud.run.jobs.execute) argument --update-env-vars:
 Bad syntax for dict arg: [b.co.jp].
 ```
 
-→ 修正済みです。最新版を取得してください（`git pull`）。
+→ 修正済みです。[方法 A](#%E5%AE%9F%E8%A1%8C%E5%A0%B4%E6%89%80) の手順で最新版に更新してください。
 
 `gcloud` の `--update-env-vars` は既定でカンマを環境変数の区切りとして扱うため、`DOMAINS=a.com,b.co.jp` のカンマが区切りと誤認されていました。現在は区切り文字を `|` に変更して回避しています。
 
