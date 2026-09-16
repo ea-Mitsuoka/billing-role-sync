@@ -316,7 +316,7 @@ function badge(slide, x, y, n, color = DEEP, d = 0.5) {
   const steps = [
     ["Cloud Shell を起動", "前回と同様に「>_」アイコンから起動します。"],
     ["フォルダへ移動", "既にクローン済みのディレクトリに入ります。"],
-    ["（任意）最新版を取得", "更新があれば git pull で取り込みます。"],
+    ["最新版に更新", "右のコマンドでリモートの最新状態に合わせます。"],
   ];
   let y = 2.6;
   steps.forEach(([h, d], i) => {
@@ -326,13 +326,14 @@ function badge(slide, x, y, n, color = DEEP, d = 0.5) {
     y += 1.15;
   });
 
-  code(s, 8.7, 2.7, W - M - 8.7, [
+  code(s, 7.77, 2.7, W - M - 7.77, [
     "# 2回目以降",
     "$ cd ~/billing-role-sync",
     "",
-    "# 最新版にする場合のみ",
-    "$ git pull",
-  ], { fs: 13, lh: 0.34, accent: true });
+    "# 最新版に更新",
+    "$ git fetch origin",
+    "$ git reset --hard origin/main",
+  ], { fs: 12.5, lh: 0.33, accent: true });
 
   const ny = 6.05;
   s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: M, y: ny, w: W - 2 * M, h: 0.7, fill: { color: "EAF6F0" }, line: { type: "none" }, rectRadius: 0.07 });
